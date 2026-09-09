@@ -1,0 +1,541 @@
+<!doctype html>
+<html lang="uz" class="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>SimSim Korea — Interaktiv Aqlli Tariflar</title>
+  <meta name="description" content="Interaktiv SimSim Korea — AI yordamida tavsiya qilingan mobil tariflar. Dinamik fon va real‑time analytics.">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              bg: '#070A11',
+              card: '#0F1523',
+              accent: '#00F0FF',
+              neonPurple: '#7000FF',
+              neonPink: '#FF007A',
+              mint: '#00FF9D',
+              gold: '#FFB800'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    /* (CSS same as previous interactive version, trimmed here for brevity) */
+    :root{--accent:#00F0FF}
+    html,body{height:100%}
+    body{background:linear-gradient(180deg,#070A11,#0f1523);transition:background .7s;color:#e6eef8;font-family:Inter,system-ui}
+    #bg-canvas{position:fixed;inset:0;z-index:0;pointer-events:none}
+    .mood-blob{position:fixed;width:60vmax;height:60vmax;border-radius:50%;filter:blur(120px);opacity:.18;pointer-events:none;transition:opacity .6s,transform .8s}
+    .blob-a{right:-10%;top:-30%}
+    .blob-b{left:-20%;bottom:-30%}
+    .glass-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border:1px solid rgba(255,255,255,.06);backdrop-filter:blur(10px);box-shadow:0 10px 40px rgba(2,6,23,.65)}
+    .glass-card:hover{transform:translateY(-10px) scale(1.02);box-shadow:0 30px 80px rgba(0,0,0,.6)}
+    .neon-outline{box-shadow:0 0 18px 4px rgba(0,240,255,.04)}
+    ::-webkit-scrollbar{width:10px} ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.06);border-radius:8px}
+  </style>
+</head>
+<body class="min-h-screen antialiased relative overflow-x-hidden">
+
+  <!-- Mood blobs -->
+  <div id="blobA" class="mood-blob blob-a" aria-hidden="true"></div>
+  <div id="blobB" class="mood-blob blob-b" aria-hidden="true"></div>
+
+  <!-- Canvas -->
+  <canvas id="bg-canvas" aria-hidden="true"></canvas>
+
+  <!-- Header with language selector -->
+  <header class="sticky top-0 z-40 backdrop-blur-xl bg-[rgba(7,10,17,0.6)] border-b border-gray-800/40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+      <div class="flex items-center gap-3 cursor-pointer" onclick="window.scrollTo({top:0,behavior:'smooth'})" role="button" aria-label="Go to top">
+        <div class="w-11 h-11 rounded-2xl bg-gradient-to-br from-brand-accent via-blue-600 to-brand-neonPurple flex items-center justify-center text-black font-black text-2xl shadow-lg">S</div>
+        <div>
+          <span class="text-2xl font-black tracking-tight text-white">SimSim<span class="text-brand-accent">Korea</span></span>
+          <span id="tagline" class="block text-[10px] tracking-widest text-cyan-400/80 uppercase font-bold" data-i18n="ai_tag">AI Smart Calculator · Real-time Analytics</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-2">
+          <button class="lang-btn px-3 py-1 rounded-md text-xs font-semibold" data-lang="uz" aria-label="O'zbekcha">UZ</button>
+          <button class="lang-btn px-3 py-1 rounded-md text-xs font-semibold" data-lang="ko" aria-label="한국어">KO</button>
+          <button class="lang-btn px-3 py-1 rounded-md text-xs font-semibold" data-lang="en" aria-label="English">EN</button>
+        </div>
+        <a id="call-btn" href="tel:01081271145" class="hidden sm:flex items-center gap-2.5 bg-gradient-to-r from-brand-accent via-cyan-400 to-emerald-400 text-black font-extrabold px-6 py-2.5 rounded-full hover:scale-105 transition shadow-lg" aria-label="Call">
+          <i class="fa-solid fa-phone animate-bounce"></i><span data-i18n="phone_text">010-8127-1145</span>
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative z-10 pt-12 pb-16">
+    <div class="max-w-5xl mx-auto px-4 text-center">
+      <h1 class="text-4xl sm:text-6xl font-extrabold text-white mb-4 leading-tight">
+        <span data-i18n="heading_part1">Koreyadagi eng arzon va</span>
+        <br/>
+        <span style="background:linear-gradient(90deg,var(--accent),#00FFA8);-webkit-background-clip:text;background-clip:text;color:transparent;" data-i18n="heading_part2">aqlli mobil tariflar</span>
+      </h1>
+      <p id="hero-desc" class="max-w-3xl mx-auto text-gray-300 mb-8" data-i18n="description">Operatorlar: SKT · KT · LGU+ — oylik foydalanish boʻyicha ideal tarifni tanlang. Fon harakatlari har bir qarorga hissiyot beradi.</p>
+
+      <div class="glass-card p-6 sm:p-8 rounded-3xl neon-outline relative mx-4">
+        <h3 class="text-xl font-bold text-white mb-4"><i class="fa-solid fa-calculator text-brand-accent mr-2"></i><span data-i18n="calc_title">Oylik Internetni belgilang</span></h3>
+
+        <div class="mb-6">
+          <div class="flex justify-between text-sm font-bold text-gray-300 mb-2">
+            <span data-i18n="data_usage">Traffik Hajmi:</span>
+            <span id="slider-value" class="text-brand-accent font-mono text-lg">15 GB / oy</span>
+          </div>
+          <input type="range" id="usage-slider" min="3" max="100" value="15" step="1" class="w-full h-3 bg-gray-800 rounded-lg accent-brand-accent" aria-label="Usage slider">
+          <div class="flex justify-between text-xs text-gray-400 mt-2">
+            <span data-i18n="min3">3 GB</span>
+            <span data-i18n="mid50">50 GB</span>
+            <span data-i18n="max100">100 GB</span>
+          </div>
+        </div>
+
+        <div id="calc-result" class="p-4 rounded-2xl bg-[rgba(7,10,17,0.6)] border border-[rgba(0,240,255,0.06)] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div class="text-left">
+            <span class="text-xs text-gray-400 block uppercase tracking-wider font-semibold" data-i18n="recommended">Tavsiya</span>
+            <span id="rec-plan-name" class="text-lg font-bold text-white">KT M Mobile (15GB)</span>
+          </div>
+          <div class="text-right flex items-center gap-4">
+            <div>
+              <span class="text-xs text-gray-400 block" data-i18n="monthly_fee">Oylik to'lov</span>
+              <span id="rec-plan-price" class="text-2xl font-black text-brand-mint">₩22,400</span>
+            </div>
+            <button id="analyzeBtn" class="px-5 py-2.5 rounded-xl bg-brand-accent text-black font-extrabold text-sm hover:scale-105 transition shadow-lg" aria-haspopup="dialog"><i class="fa-solid fa-chart-line mr-2"></i><span data-i18n="analyze">Tahlil</span></button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Tariff cards (same structure — each card has data-key and data-mood) -->
+  <main class="max-w-7xl mx-auto px-4 pb-24 z-10">
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h2 class="text-3xl font-extrabold text-white"><i class="fa-solid fa-fire-flame-curved text-pink-400 mr-3"></i><span data-i18n="popular">Super Mashhur SIM-Kartalar</span></h2>
+        <p class="text-sm text-gray-400" data-i18n="cards_sub">Hover qiling, moodni his eting — grafiklar uchun tahlilni bosing.</p>
+      </div>
+      <div class="px-4 py-2 rounded-xl bg-emerald-950/30 border border-emerald-600/20 text-emerald-300 text-xs" data-i18n="promo_active">Chegirmalar Aktiv</div>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <!-- LG -->
+      <article class="glass-card rounded-3xl p-7 relative group neon-outline" data-mood="pink" data-key="lg" tabindex="0" aria-label="LG Umobi 7GB karta">
+        <div class="mb-4">
+          <div class="flex justify-between items-center mb-4">
+            <span class="text-xs font-black uppercase px-3 py-1 rounded-xl bg-pink-500/12 text-pink-300">LG Umobi</span>
+            <span class="text-xs bg-gray-800/60 px-2 rounded" data-i18n="economy">Tejamkor</span>
+          </div>
+          <h3 class="text-2xl font-bold text-white" data-card-title-lg>7GB Cheksiz Reja</h3>
+          <p class="text-gray-400 text-sm mt-2" data-i18n="lg_desc">Yengil foydalanuvchilar uchun ideal.</p>
+        </div>
+        <div class="mt-4">
+          <div class="mb-4 flex items-baseline gap-2"><span class="text-3xl font-black" data-card-price-lg>₩18,500</span><span class="text-xs text-gray-400" data-i18n="per_month">/ oylik</span></div>
+          <div class="grid grid-cols-2 gap-3">
+            <button class="card-anal btn-analytic py-3 rounded-xl bg-gray-800/80 text-pink-300 font-bold text-xs" data-key="lg"><span data-i18n="analytics">Analitika</span></button>
+            <a href="tel:01081271145" class="py-3 rounded-xl bg-pink-500 text-black font-black text-xs text-center"><span data-i18n="connect">Ulanish</span></a>
+          </div>
+        </div>
+      </article>
+
+      <!-- KT -->
+      <article class="glass-card rounded-3xl p-7 relative group neon-outline border-2 border-[rgba(0,240,255,0.06)] scale-[1.02] shadow-2xl" data-mood="cyan" data-key="kt" tabindex="0" aria-label="KT M Mobile 15GB karta">
+        <div class="mb-4">
+          <div class="flex justify-between items-center mb-4">
+            <span class="text-xs font-black uppercase px-3 py-1 rounded-xl bg-cyan-500/12 text-cyan-300">KT M Mobile</span>
+            <span class="text-xs bg-cyan-950/30 px-2 rounded text-brand-accent">Bestseller</span>
+          </div>
+          <h3 class="text-2xl font-bold text-white" data-card-title-kt>15GB+ Unlim Pro</h3>
+          <p class="text-gray-300 text-sm mt-2" data-i18n="kt_desc">Video va streaming uchun maxsus.</p>
+        </div>
+        <div class="mt-4">
+          <div class="mb-4 flex items-baseline gap-2"><span class="text-3xl font-black" data-card-price-kt>₩22,400</span><span class="text-xs text-gray-400" data-i18n="per_month">/ oylik</span></div>
+          <div class="grid grid-cols-2 gap-3">
+            <button class="card-anal btn-analytic py-3.5 rounded-xl bg-cyan-900/70 text-brand-accent font-extrabold text-xs" data-key="kt"><span data-i18n="analytics">Analitika</span></button>
+            <a href="tel:01081271145" class="py-3.5 rounded-xl bg-gradient-to-r from-brand-accent to-emerald-400 text-black font-black text-xs text-center"><span data-i18n="connect">Ulanish</span></a>
+          </div>
+        </div>
+      </article>
+
+      <!-- SKT -->
+      <article class="glass-card rounded-3xl p-7 relative group neon-outline" data-mood="purple" data-key="skt" tabindex="0" aria-label="SKT 7 Mobile karta">
+        <div class="mb-4">
+          <div class="flex justify-between items-center mb-4">
+            <span class="text-xs font-black uppercase px-3 py-1 rounded-xl bg-purple-500/12 text-purple-300">SKT 7 Mobile</span>
+            <span class="text-xs bg-gray-800/60 px-2 rounded" data-i18n="ultra">Ultra Max</span>
+          </div>
+          <h3 class="text-2xl font-bold text-white" data-card-title-skt>11GB + Kunlik 2GB</h3>
+          <p class="text-gray-400 text-sm mt-2" data-i18n="skt_desc">O'yinlar va HD streaming uchun ideal.</p>
+        </div>
+        <div class="mt-4">
+          <div class="mb-4 flex items-baseline gap-2"><span class="text-3xl font-black" data-card-price-skt>₩36,140</span><span class="text-xs text-gray-400" data-i18n="per_month">/ oylik</span></div>
+          <div class="grid grid-cols-2 gap-3">
+            <button class="card-anal btn-analytic py-3 rounded-xl bg-gray-800/80 text-purple-300 font-bold text-xs" data-key="skt"><span data-i18n="analytics">Analitika</span></button>
+            <a href="tel:01081271145" class="py-3 rounded-xl bg-purple-600 text-white font-black text-xs text-center"><span data-i18n="connect">Ulanish</span></a>
+          </div>
+        </div>
+      </article>
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="analytics-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center modal-backdrop p-4" aria-hidden="true">
+    <div class="bg-[rgba(15,21,35,0.95)] w-full max-w-2xl rounded-3xl p-6 sm:p-8 border border-[rgba(255,255,255,0.03)] shadow-2xl" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button id="closeModal" class="absolute top-6 right-6 w-10 h-10 rounded-full bg-gray-800 text-gray-400 flex items-center justify-center" aria-label="Close"><i class="fa-solid fa-xmark"></i></button>
+      <div class="flex items-center gap-3 mb-4">
+        <div id="modalIcon" class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold bg-[rgba(0,240,255,0.08)]"> <i class="fa-solid fa-chart-line"></i></div>
+        <div>
+          <h3 id="modal-title" class="text-2xl font-extrabold">Tarif Tahlili</h3>
+          <p id="modal-sub" class="text-xs text-gray-400">AI ma'lumotlar bazasi</p>
+        </div>
+      </div>
+      <div class="mb-4 bg-[rgba(7,10,17,0.6)] p-4 rounded-2xl border border-[rgba(255,255,255,0.02)]">
+        <h4 class="text-xs text-gray-400 uppercase mb-2" data-i18n="traffic">Trafik (GB)</h4>
+        <div class="h-48"><canvas id="modalChart" aria-label="Tarif grafiki" role="img"></canvas></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-3 text-center mb-4">
+        <div class="p-3 rounded-xl bg-gray-800/50 border border-[rgba(255,255,255,0.02)]"><div class="text-[10px] text-gray-400 uppercase">Tejamkorlik</div><div id="stat-savings" class="text-lg font-extrabold text-brand-mint">45%</div></div>
+        <div class="p-3 rounded-xl bg-gray-800/50 border border-[rgba(255,255,255,0.02)]"><div class="text-[10px] text-gray-400 uppercase">Signal</div><div id="stat-signal" class="text-lg font-extrabold text-brand-accent">99.9%</div></div>
+        <div class="p-3 rounded-xl bg-gray-800/50 border border-[rgba(255,255,255,0.02)]"><div class="text-[10px] text-gray-400 uppercase">Reyting</div><div id="stat-rating" class="text-lg font-extrabold text-brand-gold">4.9</div></div>
+      </div>
+
+      <div class="flex gap-3">
+        <button id="modalCloseBtn" class="w-1/3 py-3 rounded-xl bg-gray-800 text-gray-300" data-i18n="close">Yopish</button>
+        <a href="tel:01081271145" class="w-2/3 py-3 rounded-xl bg-gradient-to-r from-brand-accent to-emerald-400 text-black font-black text-center" data-i18n="connect_modal">Ushbu Tarifga Ulanish</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="relative z-10">
+    <div class="max-w-7xl mx-auto px-4 py-10 text-sm text-gray-400">
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="font-bold text-white mb-1" data-i18n="office">SimSim Korea Binosi</div>
+          <div data-i18n="address_line">Inchxon, Seo-gu, Geomdancheon-ro, 363-uy</div>
+        </div>
+        <a href="tel:01081271145" class="bg-gray-800/60 px-4 py-3 rounded-xl"><span data-i18n="phone_text">010-8127-1145</span></a>
+      </div>
+      <div class="mt-6 text-xs text-gray-500">&copy; <span id="year"></span> SimSim Korea. <span data-i18n="rights">All rights reserved.</span></div>
+    </div>
+  </footer>
+
+  <!-- Scripts: particles, mood & i18n -->
+  <script>
+    // ---- Translations (uz, ko, en) ----
+    const TRANSLATIONS = {
+      uz: {
+        ai_tag: "AI Smart Kalkulyator · Real‑vaqtdagi analitika",
+        heading_part1: "Koreyadagi eng arzon va",
+        heading_part2: "aqlli mobil tariflar",
+        description: "Operatorlar: SKT · KT · LGU+ — oylik foydalanish boʻyicha ideal tarifni tanlang. Fon harakatlari har bir qarorga hissiyot beradi.",
+        calc_title: "Oylik Internetni belgilang",
+        data_usage: "Traffik Hajmi:",
+        slider_suffix: "GB / oy",
+        min3: "3 GB",
+        mid50: "50 GB",
+        max100: "100 GB",
+        recommended: "Tavsiya",
+        monthly_fee: "Oylik to'lov",
+        analyze: "Tahlil",
+        analytics: "Analitika",
+        connect: "Ulanish",
+        per_month: "/ oylik",
+        popular: "Super Mashhur SIM-Kartalar",
+        cards_sub: "Hover qiling, moodni his eting — grafiklar uchun tahlilni bosing.",
+        promo_active: "Chegirmalar Aktiv",
+        economy: "Tejamkor",
+        ultra: "Ultra Max",
+        lg_desc: "Yengil foydalanuvchilar uchun ideal.",
+        kt_desc: "Video va streaming uchun maxsus.",
+        skt_desc: "O'yinlar va HD streaming uchun ideal.",
+        traffic: "Trafik (GB)",
+        close: "Yopish",
+        connect_modal: "Ushbu Tarifga Ulanish",
+        office: "SimSim Korea Binosi",
+        address_line: "Inchxon, Seo-gu, Geomdancheon-ro, 363-uy",
+        phone_text: "010-8127-1145",
+        rights: "Barcha huquqlar himoyalangan."
+      },
+      en: {
+        ai_tag: "AI Smart Calculator · Real-time Analytics",
+        heading_part1: "Korea's Cheapest &",
+        heading_part2: "Smart Mobile Plans",
+        description: "Official operators SKT · KT · LGU+ — choose the ideal plan based on your monthly usage. Background reacts to every choice.",
+        calc_title: "Set your monthly data",
+        data_usage: "Data Usage:",
+        slider_suffix: "GB / month",
+        min3: "3 GB",
+        mid50: "50 GB",
+        max100: "100 GB",
+        recommended: "Recommended",
+        monthly_fee: "Monthly fee",
+        analyze: "Analyze",
+        analytics: "Analytics",
+        connect: "Connect",
+        per_month: "/ month",
+        popular: "Top SIM Cards",
+        cards_sub: "Hover, feel the mood — tap analyze for charts.",
+        promo_active: "Promos Active",
+        economy: "Economy",
+        ultra: "Ultra Max",
+        lg_desc: "Ideal for light users.",
+        kt_desc: "Optimized for video and streaming.",
+        skt_desc: "Perfect for gaming and HD streaming.",
+        traffic: "Traffic (GB)",
+        close: "Close",
+        connect_modal: "Connect to this Plan",
+        office: "SimSim Korea Office",
+        address_line: "Inchheon, Seo-gu, Geomdancheon-ro, 363",
+        phone_text: "010-8127-1145",
+        rights: "All rights reserved."
+      },
+      ko: {
+        ai_tag: "AI 스마트 계산기 · 실시간 분석",
+        heading_part1: "한국에서 가장 저렴하고",
+        heading_part2: "스마트한 모바일 요금제",
+        description: "공식 통신사 SKT · KT · LGU+ — 월 사용량에 맞는 이상적인 요금제를 선택하세요. 배경이 각 선택에 반응합니다.",
+        calc_title: "월간 데이터량을 설정하세요",
+        data_usage: "데이터 사용량:",
+        slider_suffix: "GB / 월",
+        min3: "3 GB",
+        mid50: "50 GB",
+        max100: "100 GB",
+        recommended: "추천 요금제",
+        monthly_fee: "월 요금",
+        analyze: "분석",
+        analytics: "분석",
+        connect: "가입하기",
+        per_month: "/ 월",
+        popular: "인기 SIM 카드",
+        cards_sub: "마우스를 올리면 무드가 바뀌고, 분석을 눌러 차트를 확인하세요.",
+        promo_active: "프로모션 활성",
+        economy: "절약형",
+        ultra: "울트라 맥스",
+        lg_desc: "라이트 사용자에게 적합합니다.",
+        kt_desc: "비디오 및 스트리밍에 최적화됨.",
+        skt_desc: "게임 및 HD 스트리밍에 적합합니다.",
+        traffic: "트래픽 (GB)",
+        close: "닫기",
+        connect_modal: "이 요금제 가입하기",
+        office: "SimSim Korea 본사",
+        address_line: "인천, 서구, Geomdancheon-ro 363",
+        phone_text: "010-8127-1145",
+        rights: "모든 권리 보유."
+      }
+    };
+
+    // ---- Plan names/prices by language (used for dynamic rec plan updates) ----
+    const PLANS = {
+      uz: {
+        lg: { title: "7GB Cheksiz Reja", price: "₩18,500" },
+        kt: { title: "15GB+ Unlim Pro", price: "₩22,400" },
+        skt:{ title: "11GB + Kunlik 2GB", price: "₩36,140" }
+      },
+      en: {
+        lg: { title: "7GB Unlimited Plan", price: "₩18,500" },
+        kt: { title: "15GB+ Unlim Pro", price: "₩22,400" },
+        skt:{ title: "11GB + Daily 2GB", price: "₩36,140" }
+      },
+      ko: {
+        lg: { title: "7GB 무제한 요금제", price: "₩18,500" },
+        kt: { title: "15GB+ Unlim Pro", price: "₩22,400" },
+        skt:{ title: "11GB + 일일 2GB", price: "₩36,140" }
+      }
+    };
+
+    // ---- i18n engine ----
+    let currentLang = localStorage.getItem('simlang') || (navigator.language && navigator.language.startsWith('ko') ? 'ko' : 'uz');
+    const setLangButtons = () => {
+      document.querySelectorAll('.lang-btn').forEach(b => {
+        b.classList.toggle('opacity-60', b.dataset.lang !== currentLang);
+        b.classList.toggle('opacity-100', b.dataset.lang === currentLang);
+      });
+    };
+
+    function applyTranslations(lang) {
+      currentLang = lang;
+      localStorage.setItem('simlang', lang);
+      document.documentElement.lang = lang;
+      setLangButtons();
+
+      // data-i18n elements
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (TRANSLATIONS[lang] && TRANSLATIONS[lang][key]) el.textContent = TRANSLATIONS[lang][key];
+      });
+
+      // update plan titles/prices shown on cards & rec area according to language
+      ['lg','kt','skt'].forEach(k => {
+        const plan = PLANS[lang][k];
+        const titleEl = document.querySelector(`[data-card-title-${k}]`) || document.querySelector(`[data-card-title-${k}]`);
+        const priceEl = document.querySelector(`[data-card-price-${k}]`);
+        // fallback: elements with specific attributes may be undefined — use find by dataset key
+        if (titleEl) titleEl.textContent = plan.title;
+        if (priceEl) priceEl.textContent = plan.price;
+      });
+
+      // update rec area (based on current slider value)
+      updateRecFromSlider();
+      // update phone text
+      document.querySelectorAll('[data-i18n="phone_text"]').forEach(el => el.textContent = TRANSLATIONS[lang].phone_text);
+    }
+
+    // Language buttons
+    document.querySelectorAll('.lang-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const lang = btn.dataset.lang;
+        applyTranslations(lang);
+      });
+    });
+
+    // set initial language on load
+    applyTranslations(currentLang);
+    setLangButtons();
+
+    // ---- rest of interactive code: particles, moods, slider, modal (keeps previous logic) ----
+    // For brevity, we reuse the same particle/mood & modal logic from earlier version.
+    // (Initialize particles, mood engine, slider behavior; ensure rec-plan updated via PLANS[currentLang])
+    // -- Particle & mood code (abbreviated but functional) --
+
+    const canvas = document.getElementById('bg-canvas');
+    const ctx = canvas.getContext('2d');
+    function resizeCanvas(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+    window.addEventListener('resize', resizeCanvas); resizeCanvas();
+
+    class Particle {
+      constructor(color){ this.reset(color); }
+      reset(color){ this.x=Math.random()*innerWidth; this.y=Math.random()*innerHeight; this.vx=(Math.random()-0.5)*0.4; this.vy=(Math.random()-0.5)*0.4; this.r=Math.random()*1.6+0.6; this.c=color || 'rgba(0,240,255,'; this.a=Math.random()*0.45+0.08; this.life=Math.random()*200+200; this.age=0; }
+      update(){ this.x+=this.vx; this.y+=this.vy; this.age++; if(this.x<-50||this.x>innerWidth+50||this.y<-50||this.y>innerHeight+50||this.age>this.life) this.reset(this.c); }
+      draw(){ ctx.fillStyle = this.c + this.a + ')'; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fill(); }
+      burst(){ this.vx += (Math.random()-0.5)*3; this.vy += (Math.random()-0.5)*3; this.a = Math.min(1,this.a+0.3); }
+      setColor(c){ this.c = c; }
+    }
+
+    let mood = { color: 'rgba(0,240,255,' , glow:'rgba(0,240,255,0.22)', bg1:'#070A11', bg2:'#0F1523', particles:45 };
+    const moods = {
+      pink: { color:'rgba(255,0,122,', glow:'rgba(255,0,122,0.18)', bg1:'#12060A', bg2:'#1E0A14', particles:40 },
+      cyan: { color:'rgba(0,240,255,', glow:'rgba(0,240,255,0.22)', bg1:'#070A11', bg2:'#0F1523', particles:55 },
+      purple: { color:'rgba(112,0,255,', glow:'rgba(112,0,255,0.18)', bg1:'#0A0412', bg2:'#180424', particles:65 }
+    };
+
+    let particles = [];
+    function initParticles(n=45){
+      particles = [];
+      for(let i=0;i<n;i++) particles.push(new Particle(mood.color));
+    }
+    initParticles(mood.particles || 45);
+
+    let running = true;
+    function anim(){
+      if(!running){ requestAnimationFrame(anim); return; }
+      ctx.clearRect(0,0,innerWidth,innerHeight);
+      particles.forEach(p=>{ p.update(); p.draw(); });
+      requestAnimationFrame(anim);
+    }
+    anim();
+    function setMood(m){ mood = m; document.body.style.background = `linear-gradient(180deg, ${m.bg1}, ${m.bg2})`; particles.forEach(p=>p.setColor(m.color)); initParticles(m.particles); }
+
+    // update rec plan from slider value using current language PLANS
+    const slider = document.getElementById('usage-slider');
+    const sliderValue = document.getElementById('slider-value');
+    const recName = document.getElementById('rec-plan-name');
+    const recPrice = document.getElementById('rec-plan-price');
+
+    function updateRecFromSlider(){
+      const val = parseInt(slider.value,10);
+      sliderValue.innerText = val + ' ' + (TRANSLATIONS[currentLang].slider_suffix || 'GB / oy');
+      if(val <= 8){
+        recName.innerText = PLANS[currentLang].lg.title;
+        recPrice.innerText = PLANS[currentLang].lg.price;
+        setMood(moods.pink);
+      } else if(val <= 30){
+        recName.innerText = PLANS[currentLang].kt.title;
+        recPrice.innerText = PLANS[currentLang].kt.price;
+        setMood(moods.cyan);
+      } else {
+        recName.innerText = PLANS[currentLang].skt.title;
+        recPrice.innerText = PLANS[currentLang].skt.price;
+        setMood(moods.purple);
+      }
+    }
+    slider.addEventListener('input', updateRecFromSlider);
+    updateRecFromSlider();
+
+    // card hover mood switching
+    document.querySelectorAll('[data-mood]').forEach(card => {
+      const key = card.dataset.mood;
+      card.addEventListener('mouseenter', () => setMood(moods[key] || moods.cyan));
+      card.addEventListener('mouseleave', () => updateRecFromSlider());
+      card.addEventListener('focus', () => setMood(moods[key] || moods.cyan));
+      card.addEventListener('blur', () => updateRecFromSlider());
+    });
+
+    // modal & chart logic (uses modalData independent of language for numeric arrays; titles shown via i18n/PLANS)
+    const modalData = {
+      lg: { titleKey: 'lg', subtitle: { uz:'Yengil foydalanuvchi', en:'Light user', ko:'라이트 사용자' }, color:'#FF007A', savings:'50%', signal:'99.5%', rating:'4.8', data:[7,7,7,1,1,1], labels:['1-hafta','2-hafta','3-hafta','4-hafta','Limit','Keyingi oy'] },
+      kt: { titleKey: 'kt', subtitle: { uz:'Bestseller', en:'Bestseller', ko:'베스트셀러' }, color:'#00F0FF', savings:'40%', signal:'99.9%', rating:'4.9', data:[15,15,12,8,3,1], labels:['1-kun','5-kun','12-kun','20-kun','25-kun','Limit'] },
+      skt:{ titleKey:'skt', subtitle: { uz:'Oliy tezlik', en:'Ultra speed', ko:'초고속' }, color:'#7000FF', savings:'30%', signal:'100%', rating:'5.0', data:[11,13,15,17,19,21], labels:['Boshlanish','+2GB','+4GB','+6GB','+8GB','Maksimal'] }
+    };
+
+    let chart = null;
+    const modal = document.getElementById('analytics-modal');
+    const closeModal = document.getElementById('closeModal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalSub = document.getElementById('modal-sub');
+    const statSavings = document.getElementById('stat-savings');
+    const statSignal = document.getElementById('stat-signal');
+    const statRating = document.getElementById('stat-rating');
+
+    function openModalFor(key){
+      const d = modalData[key];
+      modalTitle.textContent = PLANS[currentLang][key].title;
+      modalSub.textContent = d.subtitle[currentLang] || '';
+      statSavings.textContent = d.savings;
+      statSignal.textContent = d.signal;
+      statRating.textContent = d.rating;
+      modal.classList.remove('hidden'); document.body.style.overflow='hidden';
+      // burst
+      for(let i=0;i<20;i++){ particles[Math.floor(Math.random()*particles.length)]?.burst(); }
+      // chart
+      const ctxM = document.getElementById('modalChart').getContext('2d');
+      if(chart) chart.destroy();
+      chart = new Chart(ctxM, {
+        type:'line',
+        data:{ labels: d.labels, datasets:[{ label:'GB', data:d.data, borderColor:d.color, backgroundColor:d.color+'20', fill:true, tension:0.35, borderWidth:3 }]},
+        options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ ticks:{ color:'#9CA3AF' } }, y:{ ticks:{ color:'#9CA3AF' } } } }
+      });
+    }
+
+    // attach analyze buttons
+    document.querySelectorAll('.btn-analytic, #analyzeBtn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const key = btn.dataset?.key || 'kt';
+        openModalFor(key);
+      });
+    });
+
+    closeModal.addEventListener('click', () => {
+      modal.classList.add('hidden'); document.body.style.overflow=''; if(chart){ chart.destroy(); chart=null; }
+    });
+    document.getElementById('modalCloseBtn')?.addEventListener('click', () => closeModal.click());
+    modal.addEventListener('click', (e) => { if(e.target === modal) closeModal.click(); });
+
+    // set year
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+  </script>
+</body>
+</html>
